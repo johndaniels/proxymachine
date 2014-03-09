@@ -1,4 +1,4 @@
-require 'test_helper'
+require_relative 'test_helper'
 
 def assert_proxy(host, port, send, recv)
   sock = TCPSocket.new(host, port)
@@ -18,7 +18,7 @@ class ProxymachineTest < Test::Unit::TestCase
 
   should "handle simple routing" do
     assert_proxy('localhost', 9990, 'a', '9980:a')
-    assert_proxy('localhost', 9990, 'b', '9981:b')
+    assert_proxy('localhost', 9990, 'bb', '9981:bb')
   end
 
   should "handle connection closing" do
@@ -75,5 +75,20 @@ class ProxymachineTest < Test::Unit::TestCase
     sock.close
     sleep 3.1
     assert !File.exist?(@proxy_error_file)
+  end
+
+  should "not block when trying to route someone" do
+    start = Time.now
+    socks = (1..5).map do
+      sock = TCPSocket.new("localhost", 9990)
+      sock.write('blocking')
+      sock
+    end
+
+    socks.each do |sock|
+      assert_equal "9980:blocking", sock.read
+      sock.close
+    end
+    assert_operator Time.now - start, :<=, 3.0
   end
 end

@@ -3,7 +3,7 @@ LOGGER = Logger.new(File.new('/dev/null', 'w'))
 proxy do |data|
   if data == 'a'
     { :remote => "localhost:9980" }
-  elsif data == 'b'
+  elsif data == 'bb'
     { :remote => "localhost:9981" }
   elsif data == 'c'
     { :remote => "localhost:9980", :data => 'ccc' }
@@ -19,6 +19,8 @@ proxy do |data|
     { :remote => "localhost:9989" }
   elsif data == 'inactivity'
     { :remote => "localhost:9980", :data => 'sleep 3', :inactivity_timeout => 1 }
+  elsif data == 'blocking'
+    { :remote_func => lambda {sleep(1); return "localhost:9980"} }
   else
     { :close => true }
   end

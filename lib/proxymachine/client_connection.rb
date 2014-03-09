@@ -29,7 +29,7 @@ class ProxyMachine
     def receive_data(data)
       if !@connected
         @buffer << data
-        establish_remote_server if @remote.nil?
+        establish_remote_server if @remote.nil? and @remote_func.nil?
       end
     rescue => e
       close_connection
@@ -40,10 +40,35 @@ class ProxyMachine
     # server has been established. If a remote can be established, an
     # attempt is made to connect and proxy to the remote server.
     def establish_remote_server
-      fail "establish_remote_server called with remote established" if @remote
+      fail "establish_remote_server called with remote established" if @remote or @remote_func
       commands = ProxyMachine.router.call(@buffer.join)
       LOGGER.info "#{peer} #{commands.inspect}"
       close_connection unless commands.instance_of?(Hash)
+      if remote_func = commands[:remote_func]
+        @remote_func = remote_func
+        operation = lambda {
+          begin
+            return remote_func.call()
+          rescue => e
+            LOGGER.error "Exception thrown by remote_func: #{e.class} - #{e.message}"
+            return nil
+          end
+        }
+        callback = lambda { |remote|
+          if remote.instance_of?(String)
+            commands[:remote] = remote
+            process_router_results(commands)
+          else
+            close_connection
+          end
+        }
+        EventMachine.defer(operation, callback)
+      else
+        process_router_results(commands)
+      end
+    end
+
+    def process_router_results(commands)
       if remote = commands[:remote]
         m, host, port = *remote.match(/^(.+):(.+)$/)
         @remote = [host, port]
